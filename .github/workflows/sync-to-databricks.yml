@@ -1,0 +1,28 @@
+name: Sync repo to Databricks
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    name: Pull and sync repository files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync repository to Databricks folder
+        run: |
+          TARGET_PATH="${{ secrets.DATABRICKS_TARGET_PATH }}"
+          if [ -z "$TARGET_PATH" ]; then
+            echo "DATABRICKS_TARGET_PATH secret is not set"
+            exit 1
+          fi
+
+          rsync -av --exclude='.git' --exclude='.github' --exclude='data input' . "$TARGET_PATH"
+
+    env:
+      DATABRICKS_TARGET_PATH: ${{ secrets.DATABRICKS_TARGET_PATH }}
