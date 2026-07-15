@@ -31,11 +31,7 @@ jobs:
       - name: Create Databricks CLI config
         run: |
           mkdir -p /tmp
-          cat > /tmp/.databrickscfg <<EOF
-[DEFAULT]
-host = $DATABRICKS_HOST
-token = $DATABRICKS_TOKEN
-EOF
+          printf '[DEFAULT]\nhost = %s\ntoken = %s\n' "$DATABRICKS_HOST" "$DATABRICKS_TOKEN" > /tmp/.databrickscfg
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
