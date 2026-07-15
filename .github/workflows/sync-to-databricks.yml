@@ -14,15 +14,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Sync repository to Databricks folder
+      - name: Install Databricks CLI
+        run: python -m pip install --upgrade pip databricks-cli
+
+      - name: Upload repository to DBFS
         run: |
           TARGET_PATH="${{ secrets.DATABRICKS_TARGET_PATH }}"
           if [ -z "$TARGET_PATH" ]; then
-            echo "DATABRICKS_TARGET_PATH secret is not set"
-            exit 1
+            TARGET_PATH="dbfs:/FileStore/databricks_learning"
+            echo "DATABRICKS_TARGET_PATH not set, using default free-edition DBFS path: $TARGET_PATH"
           fi
 
-          rsync -av --exclude='.git' --exclude='.github' --exclude='data input' . "$TARGET_PATH"
-
-    env:
-      DATABRICKS_TARGET_PATH: ${{ secrets.DATABRICKS_TARGET_PATH }}
+          databricks fs cp --recursive . "$TARGET_PATH"
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_CONFIG_FILE: /tmp/.databrickscfg
