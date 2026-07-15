@@ -27,7 +27,7 @@ jobs:
               HOST="https://$HOST"
           fi
           
-          REPO_PATH="/Workspace/Repos/databricks_learning"
+          REPO_PATH="/Repos/databricks_learning"
           REPO_URL="${{ github.server_url }}/${{ github.repository }}"
           
           echo "=== Creating/Syncing Repository ==="
@@ -35,7 +35,7 @@ jobs:
           echo "Repo URL: $REPO_URL"
           echo "Repo Path: $REPO_PATH"
           
-          # Step 1: Create repository
+          # Step 1: Try to create repository
           echo -e "\n--- Step 1: Creating repository ---"
           CREATE_RESPONSE=$(curl -s -X POST "$HOST/api/2.0/repos" \
             -H "Authorization: Bearer $TOKEN" \
@@ -43,43 +43,52 @@ jobs:
             -d "{
               \"url\": \"$REPO_URL\",
               \"provider\": \"gitHub\",
-              \"path\": \"$REPO_PATH\",
-              \"branch\": \"main\"
+              \"path\": \"$REPO_PATH\"
             }")
           
           echo "Response: $CREATE_RESPONSE"
           
-          # Extract repo ID from response
+          # Extract repo ID
           REPO_ID=$(echo "$CREATE_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
           
+          if [ ! -z "$REPO_ID" ]; then
+              echo "✓ Repository created with ID: $REPO_ID"
+          else
+              # Check if error is "already exists"
+              if echo "$CREATE_RESPONSE" | grep -q "RESOURCE_ALREADY_EXISTS"; then
+                  echo "Repository already exists, getting ID..."
+                  
+                  # List repos to find matching one
+                  LIST_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/repos?path_prefix=$REPO_PATH" \
+                    -H "Authorization: Bearer $TOKEN" \
+                    -H "Content-Type: application/json")
+                  
+                  REPO_ID=$(echo "$LIST_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+              fi
+          fi
+          
           if [ -z "$REPO_ID" ]; then
-              echo "Failed to extract repo ID, trying to get existing repo..."
-              
-              # Try to get existing repo
-              LIST_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/repos" \
-                -H "Authorization: Bearer $TOKEN" \
-                -H "Content-Type: application/json")
-              
-              echo "Repos: $LIST_RESPONSE"
-              
-              REPO_ID=$(echo "$LIST_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+              echo "✗ Could not create or find repository"
+              echo "Full response: $CREATE_RESPONSE"
+              exit 1
           fi
           
           echo "Repo ID: $REPO_ID"
           
-          if [ ! -z "$REPO_ID" ]; then
-              # Step 2: Update repository to pull latest
-              echo -e "\n--- Step 2: Updating repository ---"
-              UPDATE_RESPONSE=$(curl -s -X PATCH "$HOST/api/2.0/repos/$REPO_ID" \
-                -H "Authorization: Bearer $TOKEN" \
-                -H "Content-Type: application/json" \
-                -d "{
-                  \"branch\": \"main\"
-                }")
-              
-              echo "Update Response: $UPDATE_RESPONSE"
-              echo "✓ Repository synced successfully!"
-          else
-              echo "✗ Could not get repo ID"
+          # Step 2: Update repository to pull latest
+          echo -e "\n--- Step 2: Updating repository to pull from main ---"
+          UPDATE_RESPONSE=$(curl -s -X PATCH "$HOST/api/2.0/repos/$REPO_ID" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"branch\": \"main\"
+            }")
+          
+          echo "Update Response: $UPDATE_RESPONSE"
+          
+          if echo "$UPDATE_RESPONSE" | grep -q "error_code"; then
+              echo "✗ Failed to update repository"
               exit 1
+          else
+              echo "✓ Repository synced successfully!"
           fi
