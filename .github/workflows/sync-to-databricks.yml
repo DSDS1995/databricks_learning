@@ -30,21 +30,22 @@ jobs:
 
       - name: Create Databricks CLI config
         run: |
-          mkdir -p /tmp
-          printf '[DEFAULT]\nhost = %s\ntoken = %s\n' "$DATABRICKS_HOST" "$DATABRICKS_TOKEN" > /tmp/.databrickscfg
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          mkdir -p ~/.databricks
+          cat > ~/.databrickscfg <<EOF
+          [DEFAULT]
+          host = ${{ secrets.DATABRICKS_HOST }}
+          token = ${{ secrets.DATABRICKS_TOKEN }}
+          EOF
+          chmod 600 ~/.databrickscfg
 
       - name: Upload repository to DBFS
         run: |
           TARGET_PATH="${{ secrets.DATABRICKS_TARGET_PATH }}"
           if [ -z "$TARGET_PATH" ]; then
             TARGET_PATH="dbfs:/FileStore/databricks_learning"
-            echo "DATABRICKS_TARGET_PATH not set, using default free-edition DBFS path: $TARGET_PATH"
+            echo "DATABRICKS_TARGET_PATH not set, using default: $TARGET_PATH"
           fi
-
+          
           echo "Uploading to $TARGET_PATH"
-          databricks fs cp --recursive . "$TARGET_PATH"
-        env:
-          DATABRICKS_CONFIG_FILE: /tmp/.databrickscfg
+          databricks fs ls dbfs:/FileStore/ || echo "Testing connection..."
+          databricks fs cp --recursive . "$TARGET_PATH" --overwrite
