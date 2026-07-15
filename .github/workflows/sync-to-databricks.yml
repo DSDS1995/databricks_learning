@@ -7,7 +7,7 @@ on:
 
 jobs:
   sync:
-    name: Pull and sync repository files
+    name: Sync GitHub repo to Databricks
     runs-on: ubuntu-latest
 
     steps:
@@ -19,23 +19,100 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Databricks CLI
-        run: |
-          python -m pip install --upgrade pip
-          pip install databricks-cli
+      - name: Install dependencies
+        run: pip install requests
 
-      - name: Upload to Databricks
+      - name: Sync to Databricks Repos
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: |
-          # Use repo name as target path
-          REPO_NAME="${{ github.repository }}"
-          REPO_NAME="${REPO_NAME##*/}"
-          TARGET_PATH="dbfs:/FileStore/${REPO_NAME}"
+          python << 'EOF'
+          import os
+          import requests
+          import json
           
-          # Ensure target directory exists
-          databricks fs mkdirs "$TARGET_PATH" 2>/dev/null || true
+          host = os.getenv('DATABRICKS_HOST', '').strip()
+          token = os.getenv('DATABRICKS_TOKEN', '').strip()
           
-          # Upload all files recursively
-          databricks fs cp --recursive --overwrite . "$TARGET_PATH/"
+          if not host or not token:
+              print("ERROR: DATABRICKS_HOST or DATABRICKS_TOKEN not set")
+              exit(1)
+          
+          # Ensure host has protocol
+          if not host.startswith(('http://', 'https://')):
+              host = 'https://' + host
+          host = host.rstrip('/')
+          
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Content-Type': 'application/json'
+          }
+          
+          repo_url = "${{ github.server_url }}/${{ github.repository }}"
+          repo_name = "${{ github.repository }}".split('/')[-1]
+          path = f"/Repos/{repo_name}"
+          
+          print(f"Syncing {repo_url}")
+          print(f"Target path: {path}")
+          
+          # First, try to update existing repo
+          try:
+              response = requests.get(
+                  f'{host}/api/2.0/repos',
+                  headers=headers,
+                  timeout=10
+              )
+              
+              repos = response.json().get('repos', [])
+              repo_id = None
+              
+              for repo in repos:
+                  if repo['path'] == path:
+                      repo_id = repo['id']
+                      print(f"Found existing repo with ID: {repo_id}")
+                      break
+              
+              if repo_id:
+                  # Update existing repo - pull latest
+                  print("Pulling latest from main branch...")
+                  response = requests.patch(
+                      f'{host}/api/2.0/repos/{repo_id}',
+                      headers=headers,
+                      json={'branch': 'main'},
+                      timeout=30
+                  )
+                  
+                  if response.status_code in [200, 204]:
+                      print("✓ Repository updated successfully")
+                  else:
+                      print(f"✗ Update failed: {response.status_code}")
+                      print(response.text)
+              else:
+                  # Create new repo
+                  print("Creating new Databricks repo...")
+                  response = requests.post(
+                      f'{host}/api/2.0/repos',
+                      headers=headers,
+                      json={
+                          'url': repo_url,
+                          'provider': 'gitHub',
+                          'path': path,
+                          'branch': 'main'
+                      },
+                      timeout=30
+                  )
+                  
+                  if response.status_code == 200:
+                      repo_id = response.json()['id']
+                      print(f"✓ Repository created with ID: {repo_id}")
+                  else:
+                      print(f"✗ Creation failed: {response.status_code}")
+                      print(response.text)
+          
+          except Exception as e:
+              print(f"Error: {e}")
+              exit(1)
+          
+          print("\nSync complete!")
+          EOF
