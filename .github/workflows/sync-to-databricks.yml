@@ -17,6 +17,29 @@ jobs:
       - name: Install Databricks CLI
         run: python -m pip install --upgrade pip databricks-cli
 
+      - name: Validate Databricks secrets
+        run: |
+          if [ -z "${{ secrets.DATABRICKS_HOST }}" ]; then
+            echo "DATABRICKS_HOST secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DATABRICKS_TOKEN }}" ]; then
+            echo "DATABRICKS_TOKEN secret is not set"
+            exit 1
+          fi
+
+      - name: Create Databricks CLI config
+        run: |
+          mkdir -p /tmp
+          cat > /tmp/.databrickscfg <<EOF
+[DEFAULT]
+host = $DATABRICKS_HOST
+token = $DATABRICKS_TOKEN
+EOF
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
       - name: Upload repository to DBFS
         run: |
           TARGET_PATH="${{ secrets.DATABRICKS_TARGET_PATH }}"
@@ -25,8 +48,7 @@ jobs:
             echo "DATABRICKS_TARGET_PATH not set, using default free-edition DBFS path: $TARGET_PATH"
           fi
 
+          echo "Uploading to $TARGET_PATH"
           databricks fs cp --recursive . "$TARGET_PATH"
         env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           DATABRICKS_CONFIG_FILE: /tmp/.databrickscfg
