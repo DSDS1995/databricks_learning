@@ -16,41 +16,70 @@ jobs:
 
       - name: Upload files to DBFS
         run: |
+          set -e
+          
           HOST="${{ secrets.DATABRICKS_HOST }}"
           TOKEN="${{ secrets.DATABRICKS_TOKEN }}"
           
-          # Remove trailing slash if present
+          # Clean up host
           HOST="${HOST%/}"
-          
-          # Add https if not present
           if [[ ! "$HOST" =~ ^https?:// ]]; then
               HOST="https://$HOST"
           fi
           
+          REPO_PATH="/Workspace/Repos/databricks_learning"
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          
+          echo "=== Creating/Syncing Repository ==="
           echo "Host: $HOST"
-          echo "Token: ${TOKEN:0:10}..."
+          echo "Repo URL: $REPO_URL"
+          echo "Repo Path: $REPO_PATH"
           
-          # Upload all files
-          find . -type f ! -path './.git/*' ! -path './.github/*' | while read file; do
-              # Skip binary files, only upload text files
-              if file "$file" | grep -q "text"; then
-                  # Read file content and encode to base64
-                  CONTENT=$(base64 -w 0 < "$file")
-                  
-                  # Build DBFS path
-                  DBFS_PATH="${file#./}"
-                  DBFS_PATH="dbfs:/FileStore/databricks_learning/$DBFS_PATH"
-                  
-                  echo "Uploading: $DBFS_PATH"
-                  
-                  # Upload via REST API
-                  RESPONSE=$(curl -s -X POST "$HOST/api/2.0/dbfs/put" \
-                    -H "Authorization: Bearer $TOKEN" \
-                    -H "Content-Type: application/json" \
-                    -d "{\"path\": \"$DBFS_PATH\", \"contents\": \"$CONTENT\", \"overwrite\": true}")
-                  
-                  echo "Status: $RESPONSE"
-              fi
-          done
+          # Step 1: Create repository
+          echo -e "\n--- Step 1: Creating repository ---"
+          CREATE_RESPONSE=$(curl -s -X POST "$HOST/api/2.0/repos" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"url\": \"$REPO_URL\",
+              \"provider\": \"gitHub\",
+              \"path\": \"$REPO_PATH\",
+              \"branch\": \"main\"
+            }")
           
-          echo "Upload complete!"
+          echo "Response: $CREATE_RESPONSE"
+          
+          # Extract repo ID from response
+          REPO_ID=$(echo "$CREATE_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+          
+          if [ -z "$REPO_ID" ]; then
+              echo "Failed to extract repo ID, trying to get existing repo..."
+              
+              # Try to get existing repo
+              LIST_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/repos" \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/json")
+              
+              echo "Repos: $LIST_RESPONSE"
+              
+              REPO_ID=$(echo "$LIST_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+          fi
+          
+          echo "Repo ID: $REPO_ID"
+          
+          if [ ! -z "$REPO_ID" ]; then
+              # Step 2: Update repository to pull latest
+              echo -e "\n--- Step 2: Updating repository ---"
+              UPDATE_RESPONSE=$(curl -s -X PATCH "$HOST/api/2.0/repos/$REPO_ID" \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"branch\": \"main\"
+                }")
+              
+              echo "Update Response: $UPDATE_RESPONSE"
+              echo "✓ Repository synced successfully!"
+          else
+              echo "✗ Could not get repo ID"
+              exit 1
+          fi
