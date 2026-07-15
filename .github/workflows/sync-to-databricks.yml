@@ -40,12 +40,6 @@ jobs:
 
       - name: Upload repository to DBFS
         run: |
-          TARGET_PATH="${{ secrets.DATABRICKS_TARGET_PATH }}"
-          if [ -z "$TARGET_PATH" ]; then
-            TARGET_PATH="dbfs:/FileStore/databricks_learning"
-            echo "DATABRICKS_TARGET_PATH not set, using default: $TARGET_PATH"
-          fi
-          
+          TARGET_PATH="dbfs:/FileStore/databricks_learning"
           echo "Uploading to $TARGET_PATH"
-          databricks fs ls dbfs:/FileStore/ || echo "Testing connection..."
           databricks fs cp --recursive . "$TARGET_PATH" --overwrite
