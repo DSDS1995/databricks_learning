@@ -19,79 +19,23 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install Databricks CLI
         run: |
           python -m pip install --upgrade pip
-          pip install databricks-cli requests
+          pip install databricks-cli
 
-      - name: Upload to Databricks via REST API
+      - name: Upload to Databricks
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: |
-          python << 'PYTHON_SCRIPT'
-          import os
-          import requests
-          import json
-          from pathlib import Path
+          # Use repo name as target path
+          REPO_NAME="${{ github.repository }}"
+          REPO_NAME="${REPO_NAME##*/}"
+          TARGET_PATH="dbfs:/FileStore/${REPO_NAME}"
           
-          # Get credentials
-          host = "${{ secrets.DATABRICKS_HOST }}"
-          token = "${{ secrets.DATABRICKS_TOKEN }}"
+          # Ensure target directory exists
+          databricks fs mkdirs "$TARGET_PATH" 2>/dev/null || true
           
-          if not host or not token:
-              raise ValueError("DATABRICKS_HOST or DATABRICKS_TOKEN not set")
-          
-          # Ensure host has protocol
-          if not host.startswith(('http://', 'https://')):
-              host = 'https://' + host
-          
-          headers = {
-              'Authorization': f'Bearer {token}',
-              'Content-Type': 'application/json'
-          }
-          
-          target_path = "dbfs:/FileStore/databricks_learning"
-          
-          # Upload all files
-          for filepath in Path('.').rglob('*'):
-              if filepath.is_file():
-                  # Skip git and workflow files
-                  if '.git' in filepath.parts or '.github' in filepath.parts:
-                      continue
-                  
-                  dbfs_path = f"{target_path}/{filepath}"
-                  
-                  with open(filepath, 'rb') as f:
-                      files = {'data': f}
-                      url = f"{host}/api/2.0/dbfs/put"
-                      
-                      # Try creating the file
-                      params = {
-                          'path': dbfs_path,
-                          'overwrite': 'true'
-                      }
-                      
-                      # For text files
-                      if filepath.suffix in ['.py', '.csv', '.txt', '.md', '.yml', '.yaml', '.json']:
-                          with open(filepath, 'r', encoding='utf-8', errors='ignore') as text_f:
-                              data = text_f.read()
-                          response = requests.post(
-                              url,
-                              headers=headers,
-                              params=params,
-                              data=data.encode('utf-8')
-                          )
-                      else:
-                          # Binary files
-                          response = requests.post(
-                              url,
-                              headers=headers,
-                              params=params,
-                              data=f.read()
-                          )
-                      
-                      if response.status_code not in [200, 201]:
-                          print(f"Warning: Failed to upload {filepath}: {response.status_code} - {response.text}")
-                      else:
-                          print(f"Uploaded: {filepath}")
-          
-          print("Upload complete!")
-          PYTHON_SCRIPT
+          # Upload all files recursively
+          databricks fs cp --recursive --overwrite . "$TARGET_PATH/"
