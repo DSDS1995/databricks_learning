@@ -7,105 +7,50 @@ on:
 
 jobs:
   sync:
-    name: Sync GitHub repo to Databricks
+    name: Sync to Databricks
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install requests
-
-      - name: Sync to Databricks Repos
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload files to DBFS
         run: |
-          python << 'EOF'
-          import os
-          import requests
-          import json
+          HOST="${{ secrets.DATABRICKS_HOST }}"
+          TOKEN="${{ secrets.DATABRICKS_TOKEN }}"
           
-          host = os.getenv('DATABRICKS_HOST', '').strip()
-          token = os.getenv('DATABRICKS_TOKEN', '').strip()
-          github_token = os.getenv('GITHUB_TOKEN', '').strip()
+          # Remove trailing slash if present
+          HOST="${HOST%/}"
           
-          if not host or not token:
-              print("ERROR: DATABRICKS_HOST or DATABRICKS_TOKEN not set")
-              exit(1)
+          # Add https if not present
+          if [[ ! "$HOST" =~ ^https?:// ]]; then
+              HOST="https://$HOST"
+          fi
           
-          # Ensure host has protocol
-          if not host.startswith(('http://', 'https://')):
-              host = 'https://' + host
-          host = host.rstrip('/')
+          echo "Host: $HOST"
+          echo "Token: ${TOKEN:0:10}..."
           
-          headers = {
-              'Authorization': f'Bearer {token}',
-              'Content-Type': 'application/json'
-          }
+          # Upload all files
+          find . -type f ! -path './.git/*' ! -path './.github/*' | while read file; do
+              # Skip binary files, only upload text files
+              if file "$file" | grep -q "text"; then
+                  # Read file content and encode to base64
+                  CONTENT=$(base64 -w 0 < "$file")
+                  
+                  # Build DBFS path
+                  DBFS_PATH="${file#./}"
+                  DBFS_PATH="dbfs:/FileStore/databricks_learning/$DBFS_PATH"
+                  
+                  echo "Uploading: $DBFS_PATH"
+                  
+                  # Upload via REST API
+                  RESPONSE=$(curl -s -X POST "$HOST/api/2.0/dbfs/put" \
+                    -H "Authorization: Bearer $TOKEN" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"path\": \"$DBFS_PATH\", \"contents\": \"$CONTENT\", \"overwrite\": true}")
+                  
+                  echo "Status: $RESPONSE"
+              fi
+          done
           
-          repo_url = "${{ github.server_url }}/${{ github.repository }}"
-          repo_name = "${{ github.repository }}".split('/')[-1]
-          path = f"/Repos/{repo_name}"
-          
-          print(f"GitHub Repo: {repo_url}")
-          print(f"Databricks Path: {path}")
-          print(f"Host: {host}")
-          
-          try:
-              # List existing repos
-              print("\n--- Checking existing repos ---")
-              response = requests.get(
-                  f'{host}/api/2.0/repos',
-                  headers=headers,
-                  timeout=10
-              )
-              print(f"Response: {response.status_code}")
-              
-              if response.status_code == 200:
-                  repos = response.json().get('repos', [])
-                  print(f"Found {len(repos)} repos")
-                  for repo in repos:
-                      print(f"  - {repo['path']} (ID: {repo['id']})")
-              else:
-                  print(f"Error: {response.text}")
-              
-              # Try to create/update repo with GitHub token in URL
-              print("\n--- Creating/Updating repo ---")
-              repo_url_with_token = f"https://{github_token}@github.com/{repo_url.split('github.com/')[-1]}.git"
-              
-              response = requests.post(
-                  f'{host}/api/2.0/repos',
-                  headers=headers,
-                  json={
-                      'url': repo_url_with_token,
-                      'provider': 'github',
-                      'path': path,
-                      'branch': 'main'
-                  },
-                  timeout=30
-              )
-              
-              print(f"Response: {response.status_code}")
-              print(f"Result: {response.text}")
-              
-              if response.status_code == 200 or response.status_code == 409:
-                  print("✓ Repo created/already exists")
-              else:
-                  print(f"✗ Failed: {response.text}")
-                  exit(1)
-          
-          except Exception as e:
-              print(f"Error: {e}")
-              import traceback
-              traceback.print_exc()
-              exit(1)
-          
-          EOF
+          echo "Upload complete!"
