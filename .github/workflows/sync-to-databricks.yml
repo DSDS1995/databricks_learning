@@ -27,16 +27,37 @@ jobs:
               HOST="https://$HOST"
           fi
           
-          REPO_PATH="/Repos/databricks_learning"
           REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          REPO_NAME="databricks_learning"
           
-          echo "=== Creating/Syncing Repository ==="
+          echo "=== Syncing Repository ==="
           echo "Host: $HOST"
           echo "Repo URL: $REPO_URL"
+          echo "Repo Name: $REPO_NAME"
+          
+          # Step 1: Get current user to build path with user ID
+          echo -e "\n--- Step 1: Getting current user ---"
+          USER_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/preview/scim/v2/Me" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json")
+          
+          echo "User Response: $USER_RESPONSE"
+          
+          USER_ID=$(echo "$USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+          
+          if [ -z "$USER_ID" ]; then
+              echo "✗ Could not get user ID"
+              exit 1
+          fi
+          
+          echo "✓ User ID: $USER_ID"
+          
+          # Build repo path with user ID
+          REPO_PATH="/Repos/$USER_ID/$REPO_NAME"
           echo "Repo Path: $REPO_PATH"
           
-          # Step 1: Try to create repository
-          echo -e "\n--- Step 1: Creating repository ---"
+          # Step 2: Create repository
+          echo -e "\n--- Step 2: Creating repository ---"
           CREATE_RESPONSE=$(curl -s -X POST "$HOST/api/2.0/repos" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
@@ -48,17 +69,13 @@ jobs:
           
           echo "Response: $CREATE_RESPONSE"
           
-          # Extract repo ID
           REPO_ID=$(echo "$CREATE_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
           
           if [ ! -z "$REPO_ID" ]; then
               echo "✓ Repository created with ID: $REPO_ID"
           else
-              # Check if error is "already exists"
               if echo "$CREATE_RESPONSE" | grep -q "RESOURCE_ALREADY_EXISTS"; then
                   echo "Repository already exists, getting ID..."
-                  
-                  # List repos to find matching one
                   LIST_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/repos?path_prefix=$REPO_PATH" \
                     -H "Authorization: Bearer $TOKEN" \
                     -H "Content-Type: application/json")
@@ -69,14 +86,13 @@ jobs:
           
           if [ -z "$REPO_ID" ]; then
               echo "✗ Could not create or find repository"
-              echo "Full response: $CREATE_RESPONSE"
               exit 1
           fi
           
           echo "Repo ID: $REPO_ID"
           
-          # Step 2: Update repository to pull latest
-          echo -e "\n--- Step 2: Updating repository to pull from main ---"
+          # Step 3: Update repository to pull latest
+          echo -e "\n--- Step 3: Pulling latest from main branch ---"
           UPDATE_RESPONSE=$(curl -s -X PATCH "$HOST/api/2.0/repos/$REPO_ID" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
@@ -91,4 +107,5 @@ jobs:
               exit 1
           else
               echo "✓ Repository synced successfully!"
+              echo "Location: $REPO_PATH"
           fi
