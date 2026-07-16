@@ -69,7 +69,8 @@ jobs:
           
           echo "Response: $CREATE_RESPONSE"
           
-          REPO_ID=$(echo "$CREATE_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+          # Extract repo ID (handle both quoted and unquoted)
+          REPO_ID=$(echo "$CREATE_RESPONSE" | grep -o '"id":[0-9]*' | cut -d':' -f2)
           
           if [ ! -z "$REPO_ID" ]; then
               echo "✓ Repository created with ID: $REPO_ID"
@@ -80,7 +81,7 @@ jobs:
                     -H "Authorization: Bearer $TOKEN" \
                     -H "Content-Type: application/json")
                   
-                  REPO_ID=$(echo "$LIST_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+                  REPO_ID=$(echo "$LIST_RESPONSE" | grep -o '"id":[0-9]*' | cut -d':' -f2)
               fi
           fi
           
