@@ -5,10 +5,6 @@ on:
     branches:
       - main
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -21,39 +17,96 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Databricks CLI
+      - name: Sync git folder to Databricks
         run: |
-          python -m pip install --upgrade pip
-          pip install databricks-cli
-
-      - name: Update git folder in Databricks
-        run: |
-          # Get user ID to build correct path
-          USER_ID=$(databricks workspace get-status / 2>/dev/null | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2 || echo "")
+          set -e
+          
+          HOST="${DATABRICKS_HOST%/}"
+          if [[ ! "$HOST" =~ ^https?:// ]]; then
+              HOST="https://$HOST"
+          fi
+          
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          REPO_NAME="databricks_learning"
+          
+          echo "=== Syncing Git Folder ==="
+          echo "Host: $HOST"
+          echo "Repo URL: $REPO_URL"
+          
+          # Get current user ID
+          USER_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/preview/scim/v2/Me" \
+            -H "Authorization: Bearer $DATABRICKS_TOKEN" \
+            -H "Content-Type: application/json")
+          
+          USER_ID=$(echo "$USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
           
           if [ -z "$USER_ID" ]; then
-              # Use API to get user ID
-              USER_RESPONSE=$(curl -s -X GET "$DATABRICKS_HOST/api/2.0/preview/scim/v2/Me" \
+              echo "✗ Could not get user ID"
+              exit 1
+          fi
+          
+          REPO_PATH="/Repos/$USER_ID/$REPO_NAME"
+          echo "Repo Path: $REPO_PATH"
+          echo "User ID: $USER_ID"
+          
+          # Try to create or update repository
+          CREATE_RESPONSE=$(curl -s -X POST "$HOST/api/2.0/repos" \
+            -H "Authorization: Bearer $DATABRICKS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"url\": \"$REPO_URL\",
+              \"provider\": \"gitHub\",
+              \"path\": \"$REPO_PATH\"
+            }")
+          
+          echo "Create Response: $CREATE_RESPONSE"
+          
+          # Extract repo ID using jq or grep
+          if command -v jq &> /dev/null; then
+              REPO_ID=$(echo "$CREATE_RESPONSE" | jq -r '.id // empty')
+          else
+              REPO_ID=$(echo "$CREATE_RESPONSE" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
+          fi
+          
+          # If creation failed due to already existing, list repos
+          if [ -z "$REPO_ID" ] && echo "$CREATE_RESPONSE" | grep -q "RESOURCE_ALREADY_EXISTS"; then
+              echo "Repository already exists, fetching repo ID..."
+              
+              LIST_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/repos" \
                 -H "Authorization: Bearer $DATABRICKS_TOKEN" \
                 -H "Content-Type: application/json")
               
-              USER_ID=$(echo "$USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+              if command -v jq &> /dev/null; then
+                  REPO_ID=$(echo "$LIST_RESPONSE" | jq -r '.repos[] | select(.path=="'"$REPO_PATH"'") | .id' | head -1)
+              else
+                  # Use grep to find repo with our path and extract ID
+                  REPO_ID=$(echo "$LIST_RESPONSE" | grep -B2 "\"path\":\"$REPO_PATH\"" | grep '"id":' | grep -o '[0-9]*' | tail -1)
+              fi
           fi
           
-          REPO_PATH="/Repos/$USER_ID/databricks_learning"
+          if [ -z "$REPO_ID" ]; then
+              echo "✗ Could not create or find repository"
+              echo "Response was: $CREATE_RESPONSE"
+              exit 1
+          fi
           
-          echo "User ID: $USER_ID"
-          echo "Repo Path: $REPO_PATH"
-          echo "Branch: main"
+          echo "✓ Repo ID: $REPO_ID"
           
-          # Try to update existing git folder
-          echo "Updating git folder..."
-          databricks repos update "$REPO_PATH" --branch main || {
-              echo "Repo doesn't exist, creating it..."
-              databricks repos create --url "https://github.com/${{ github.repository }}" \
-                --provider gitHub \
-                --path "$REPO_PATH" \
-                --branch main
-          }
+          # Update repository to sync with main branch
+          echo "Updating repository to sync with main branch..."
+          UPDATE_RESPONSE=$(curl -s -X PATCH "$HOST/api/2.0/repos/$REPO_ID" \
+            -H "Authorization: Bearer $DATABRICKS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"branch\": \"main\"
+            }")
+          
+          echo "Update Response: $UPDATE_RESPONSE"
+          
+          if echo "$UPDATE_RESPONSE" | grep -q "error_code"; then
+              echo "✗ Failed to update repository"
+              exit 1
+          fi
           
           echo "✓ Git folder synced successfully!"
+          echo "Location: $REPO_PATH"
