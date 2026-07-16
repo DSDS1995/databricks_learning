@@ -12,6 +12,7 @@ jobs:
     env:
       DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_REPO_ID: ${{ secrets.DATABRICKS_REPO_ID }}
 
     steps:
       - name: Checkout code
@@ -26,74 +27,20 @@ jobs:
               HOST="https://$HOST"
           fi
           
-          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
-          REPO_NAME="databricks_learning"
+          REPO_ID="$DATABRICKS_REPO_ID"
+          
+          if [ -z "$REPO_ID" ]; then
+              echo "✗ DATABRICKS_REPO_ID secret is not set"
+              exit 1
+          fi
           
           echo "=== Syncing Git Folder ==="
           echo "Host: $HOST"
-          echo "Repo URL: $REPO_URL"
-          
-          # Get current user ID
-          USER_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/preview/scim/v2/Me" \
-            -H "Authorization: Bearer $DATABRICKS_TOKEN" \
-            -H "Content-Type: application/json")
-          
-          USER_ID=$(echo "$USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-          
-          if [ -z "$USER_ID" ]; then
-              echo "✗ Could not get user ID"
-              exit 1
-          fi
-          
-          REPO_PATH="/Repos/$USER_ID/$REPO_NAME"
-          echo "Repo Path: $REPO_PATH"
-          echo "User ID: $USER_ID"
-          
-          # Try to create or update repository
-          CREATE_RESPONSE=$(curl -s -X POST "$HOST/api/2.0/repos" \
-            -H "Authorization: Bearer $DATABRICKS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"url\": \"$REPO_URL\",
-              \"provider\": \"gitHub\",
-              \"path\": \"$REPO_PATH\"
-            }")
-          
-          echo "Create Response: $CREATE_RESPONSE"
-          
-          # Extract repo ID using jq or grep
-          if command -v jq &> /dev/null; then
-              REPO_ID=$(echo "$CREATE_RESPONSE" | jq -r '.id // empty')
-          else
-              REPO_ID=$(echo "$CREATE_RESPONSE" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
-          fi
-          
-          # If creation failed due to already existing, list repos
-          if [ -z "$REPO_ID" ] && echo "$CREATE_RESPONSE" | grep -q "RESOURCE_ALREADY_EXISTS"; then
-              echo "Repository already exists, fetching repo ID..."
-              
-              LIST_RESPONSE=$(curl -s -X GET "$HOST/api/2.0/repos" \
-                -H "Authorization: Bearer $DATABRICKS_TOKEN" \
-                -H "Content-Type: application/json")
-              
-              if command -v jq &> /dev/null; then
-                  REPO_ID=$(echo "$LIST_RESPONSE" | jq -r '.repos[] | select(.path=="'"$REPO_PATH"'") | .id' | head -1)
-              else
-                  # Use grep to find repo with our path and extract ID
-                  REPO_ID=$(echo "$LIST_RESPONSE" | grep -B2 "\"path\":\"$REPO_PATH\"" | grep '"id":' | grep -o '[0-9]*' | tail -1)
-              fi
-          fi
-          
-          if [ -z "$REPO_ID" ]; then
-              echo "✗ Could not create or find repository"
-              echo "Response was: $CREATE_RESPONSE"
-              exit 1
-          fi
-          
-          echo "✓ Repo ID: $REPO_ID"
+          echo "Repo ID: $REPO_ID"
+          echo "Branch: main"
           
           # Update repository to sync with main branch
-          echo "Updating repository to sync with main branch..."
+          echo "Pulling latest from main branch..."
           UPDATE_RESPONSE=$(curl -s -X PATCH "$HOST/api/2.0/repos/$REPO_ID" \
             -H "Authorization: Bearer $DATABRICKS_TOKEN" \
             -H "Content-Type: application/json" \
@@ -101,7 +48,7 @@ jobs:
               \"branch\": \"main\"
             }")
           
-          echo "Update Response: $UPDATE_RESPONSE"
+          echo "Response: $UPDATE_RESPONSE"
           
           if echo "$UPDATE_RESPONSE" | grep -q "error_code"; then
               echo "✗ Failed to update repository"
@@ -109,4 +56,3 @@ jobs:
           fi
           
           echo "✓ Git folder synced successfully!"
-          echo "Location: $REPO_PATH"
