@@ -22,7 +22,7 @@ jobs:
         run: |
           set -e
           
-          HOST="${DATABRICKS_HOST%/}"s
+          HOST="${DATABRICKS_HOST%/}"
           if [[ ! "$HOST" =~ ^https?:// ]]; then
               HOST="https://$HOST"
           fi
