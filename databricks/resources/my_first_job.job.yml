@@ -8,7 +8,7 @@ resources:
             notebook_path: /Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/Bronze
               Layer CSV Ingestion
             source: WORKSPACE
-        - task_key: heheXX
+        - task_key: heheXXDDD
           depends_on:
             - task_key: clone_of_tesjobgit
           notebook_task:
