@@ -1,0 +1,160 @@
+{
+ "state_version": 2,
+ "cli_version": "1.7.0",
+ "lineage": "2554b420-d39d-4e3d-bf63-926704756456",
+ "serial": 1,
+ "state": {
+  "resources.jobs.sample_job": {
+   "__id__": "71293388613932",
+   "state": {
+    "deployment": {
+     "kind": "BUNDLE",
+     "metadata_file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/prod/state/metadata.json"
+    },
+    "edit_mode": "UI_LOCKED",
+    "environments": [
+     {
+      "environment_key": "default",
+      "spec": {
+       "dependencies": [
+        "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/prod/artifacts/.internal/mybundle-0.0.1-py3-none-any.whl"
+       ],
+       "environment_version": "4"
+      }
+     }
+    ],
+    "format": "MULTI_TASK",
+    "max_concurrent_runs": 1,
+    "name": "sample_job",
+    "parameters": [
+     {
+      "default": "learning_sql",
+      "name": "catalog"
+     },
+     {
+      "default": "prod",
+      "name": "schema"
+     }
+    ],
+    "queue": {
+     "enabled": true
+    },
+    "tasks": [
+     {
+      "notebook_task": {
+       "notebook_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/prod/files/src/sample_notebook"
+      },
+      "task_key": "notebook_task"
+     },
+     {
+      "depends_on": [
+       {
+        "task_key": "notebook_task"
+       }
+      ],
+      "environment_key": "default",
+      "python_wheel_task": {
+       "entry_point": "main",
+       "package_name": "mybundle",
+       "parameters": [
+        "--catalog",
+        "learning_sql",
+        "--schema",
+        "prod"
+       ]
+      },
+      "task_key": "python_wheel_task"
+     },
+     {
+      "depends_on": [
+       {
+        "task_key": "notebook_task"
+       }
+      ],
+      "pipeline_task": {
+       "pipeline_id": "df30bede-7597-47e4-8ac6-9311aee4525f"
+      },
+      "task_key": "refresh_pipeline"
+     }
+    ],
+    "trigger": {
+     "pause_status": "UNPAUSED",
+     "periodic": {
+      "interval": 1,
+      "unit": "DAYS"
+     }
+    }
+   },
+   "depends_on": [
+    {
+     "node": "resources.pipelines.mybundle_etl",
+     "label": "${resources.pipelines.mybundle_etl.id}"
+    }
+   ]
+  },
+  "resources.jobs.sample_job.permissions": {
+   "__id__": "/jobs/71293388613932",
+   "state": {
+    "object_id": "/jobs/71293388613932",
+    "__embed__": [
+     {
+      "level": "IS_OWNER",
+      "user_name": "dariusz.szklarek.1995@outlook.com"
+     }
+    ]
+   },
+   "depends_on": [
+    {
+     "node": "resources.jobs.sample_job",
+     "label": "${resources.jobs.sample_job.id}"
+    }
+   ]
+  },
+  "resources.pipelines.mybundle_etl": {
+   "__id__": "df30bede-7597-47e4-8ac6-9311aee4525f",
+   "state": {
+    "catalog": "learning_sql",
+    "channel": "CURRENT",
+    "deployment": {
+     "kind": "BUNDLE",
+     "metadata_file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/prod/state/metadata.json"
+    },
+    "edition": "ADVANCED",
+    "environment": {
+     "dependencies": [
+      "--editable /Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/prod/files"
+     ]
+    },
+    "libraries": [
+     {
+      "glob": {
+       "include": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/prod/files/src/mybundle_etl/transformations/**"
+      }
+     }
+    ],
+    "name": "mybundle_etl",
+    "root_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/prod/files/src/mybundle_etl",
+    "schema": "prod",
+    "serverless": true
+   }
+  },
+  "resources.pipelines.mybundle_etl.permissions": {
+   "__id__": "/pipelines/df30bede-7597-47e4-8ac6-9311aee4525f",
+   "state": {
+    "object_id": "/pipelines/df30bede-7597-47e4-8ac6-9311aee4525f",
+    "__embed__": [
+     {
+      "level": "IS_OWNER",
+      "user_name": "dariusz.szklarek.1995@outlook.com"
+     }
+    ]
+   },
+   "depends_on": [
+    {
+     "node": "resources.pipelines.mybundle_etl",
+     "label": "${resources.pipelines.mybundle_etl.id}"
+    }
+   ]
+  }
+ }
+}

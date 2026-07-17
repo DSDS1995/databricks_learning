@@ -1,0 +1,347 @@
+{
+  "__locations": {
+    "files": [
+      "databricks.yml",
+      "resources/mybundle_etl.pipeline.yml",
+      "resources/sample_job.job.yml"
+    ],
+    "locations": {
+      "artifacts": [
+        [
+          0,
+          11,
+          3
+        ]
+      ],
+      "bundle": [
+        [
+          0,
+          4,
+          3
+        ]
+      ],
+      "include": [
+        [
+          0,
+          8,
+          3
+        ]
+      ],
+      "resources": [
+        [
+          1,
+          4,
+          3
+        ],
+        [
+          2,
+          4,
+          3
+        ]
+      ],
+      "resources.jobs": [
+        [
+          2,
+          5,
+          5
+        ]
+      ],
+      "resources.jobs.sample_job": [
+        [
+          2,
+          6,
+          7
+        ]
+      ],
+      "resources.jobs.sample_job.tasks": [
+        [
+          2,
+          25,
+          9
+        ]
+      ],
+      "resources.jobs.sample_job.tasks[0]": [
+        [
+          2,
+          25,
+          11
+        ]
+      ],
+      "resources.jobs.sample_job.tasks[1]": [
+        [
+          2,
+          28,
+          11
+        ]
+      ],
+      "resources.jobs.sample_job.tasks[2]": [
+        [
+          2,
+          40,
+          11
+        ]
+      ],
+      "resources.pipelines": [
+        [
+          1,
+          5,
+          5
+        ]
+      ],
+      "resources.pipelines.mybundle_etl": [
+        [
+          1,
+          6,
+          7
+        ]
+      ],
+      "variables": [
+        [
+          0,
+          17,
+          3
+        ]
+      ],
+      "workspace": [
+        [
+          0,
+          31,
+          7
+        ]
+      ]
+    },
+    "version": 1
+  },
+  "artifacts": {
+    "python_artifact": {
+      "build": "uv build --wheel",
+      "files": [
+        {
+          "source": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle/dist/*.whl"
+        }
+      ],
+      "path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle",
+      "type": "whl"
+    }
+  },
+  "bundle": {
+    "deployment": {
+      "lock": {
+        "enabled": false
+      }
+    },
+    "environment": "dev",
+    "git": {
+      "bundle_root_path": "mybundle"
+    },
+    "mode": "development",
+    "name": "mybundle",
+    "target": "dev",
+    "uuid": "a252f876-5986-499e-8d75-9238ca131559"
+  },
+  "include": [
+    "resources/mybundle_etl.pipeline.yml",
+    "resources/sample_job.job.yml"
+  ],
+  "presets": {
+    "jobs_max_concurrent_runs": 4,
+    "name_prefix": "[dev dariusz_szklarek_1995] ",
+    "pipelines_development": true,
+    "source_linked_deployment": true,
+    "tags": {
+      "dev": "dariusz_szklarek_1995"
+    },
+    "trigger_pause_status": "PAUSED"
+  },
+  "resources": {
+    "jobs": {
+      "sample_job": {
+        "deployment": {
+          "kind": "BUNDLE",
+          "metadata_file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/state/metadata.json"
+        },
+        "edit_mode": "EDITABLE",
+        "environments": [
+          {
+            "environment_key": "default",
+            "spec": {
+              "dependencies": [
+                "./dist/*.whl"
+              ],
+              "environment_version": "4"
+            }
+          }
+        ],
+        "format": "MULTI_TASK",
+        "max_concurrent_runs": 4,
+        "modified_status": "created",
+        "name": "[dev dariusz_szklarek_1995] sample_job",
+        "parameters": [
+          {
+            "default": "learning",
+            "name": "catalog"
+          },
+          {
+            "default": "dariusz_szklarek_1995",
+            "name": "schema"
+          }
+        ],
+        "queue": {
+          "enabled": true
+        },
+        "tags": {
+          "dev": "dariusz_szklarek_1995"
+        },
+        "tasks": [
+          {
+            "notebook_task": {
+              "notebook_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle/src/sample_notebook"
+            },
+            "task_key": "notebook_task"
+          },
+          {
+            "depends_on": [
+              {
+                "task_key": "notebook_task"
+              }
+            ],
+            "environment_key": "default",
+            "python_wheel_task": {
+              "entry_point": "main",
+              "package_name": "mybundle",
+              "parameters": [
+                "--catalog",
+                "learning",
+                "--schema",
+                "dariusz_szklarek_1995"
+              ]
+            },
+            "task_key": "python_wheel_task"
+          },
+          {
+            "depends_on": [
+              {
+                "task_key": "notebook_task"
+              }
+            ],
+            "pipeline_task": {
+              "pipeline_id": "${resources.pipelines.mybundle_etl.id}"
+            },
+            "task_key": "refresh_pipeline"
+          }
+        ],
+        "trigger": {
+          "pause_status": "PAUSED",
+          "periodic": {
+            "interval": 1,
+            "unit": "DAYS"
+          }
+        }
+      }
+    },
+    "pipelines": {
+      "mybundle_etl": {
+        "catalog": "learning",
+        "channel": "CURRENT",
+        "deployment": {
+          "kind": "BUNDLE",
+          "metadata_file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/state/metadata.json"
+        },
+        "development": true,
+        "edition": "ADVANCED",
+        "environment": {
+          "dependencies": [
+            "--editable /Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle"
+          ]
+        },
+        "libraries": [
+          {
+            "glob": {
+              "include": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle/src/mybundle_etl/transformations/**"
+            }
+          }
+        ],
+        "modified_status": "created",
+        "name": "[dev dariusz_szklarek_1995] mybundle_etl",
+        "root_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle/src/mybundle_etl",
+        "schema": "dariusz_szklarek_1995",
+        "serverless": true,
+        "tags": {
+          "dev": "dariusz_szklarek_1995"
+        }
+      }
+    }
+  },
+  "sync": {
+    "paths": [
+      "."
+    ]
+  },
+  "variables": {
+    "catalog": {
+      "default": "learning",
+      "description": "The catalog to use",
+      "value": "learning"
+    },
+    "schema": {
+      "default": "dariusz_szklarek_1995",
+      "description": "The schema to use",
+      "value": "dariusz_szklarek_1995"
+    }
+  },
+  "workspace": {
+    "artifact_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/artifacts",
+    "current_user": {
+      "active": true,
+      "domain_friendly_name": "dariusz-szklarek-1995",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "dariusz.szklarek.1995@outlook.com"
+        }
+      ],
+      "entitlements": [
+        {
+          "value": "allow-cluster-create"
+        },
+        {
+          "value": "allow-instance-pool-create"
+        }
+      ],
+      "groups": [
+        {
+          "$ref": "Groups/86154315531947",
+          "display": "account users",
+          "type": "direct",
+          "value": "86154315531947"
+        },
+        {
+          "$ref": "Groups/82107402207114",
+          "display": "users",
+          "type": "direct",
+          "value": "82107402207114"
+        },
+        {
+          "$ref": "Groups/80723687487065",
+          "display": "admins",
+          "type": "direct",
+          "value": "80723687487065"
+        }
+      ],
+      "id": "70497244463236",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:workspace:2.0:User"
+      ],
+      "short_name": "dariusz_szklarek_1995",
+      "userName": "dariusz.szklarek.1995@outlook.com"
+    },
+    "file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/files",
+    "host": "https://dbc-742f67dd-b7f1.cloud.databricks.com",
+    "profile": "workspace_profile",
+    "resource_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/resources",
+    "root_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev",
+    "state_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/state"
+  }
+}

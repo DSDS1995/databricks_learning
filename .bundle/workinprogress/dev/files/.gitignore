@@ -1,0 +1,3 @@
+# Ignore Databricks or local data input folder
+data input/
+.databricks

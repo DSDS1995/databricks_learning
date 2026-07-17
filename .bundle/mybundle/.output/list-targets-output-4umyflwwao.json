@@ -1,0 +1,15 @@
+{
+  "targets": [
+    {
+      "name": "dev",
+      "default": true,
+      "mode": "development",
+      "host": "https://dbc-742f67dd-b7f1.cloud.databricks.com"
+    },
+    {
+      "name": "prod",
+      "mode": "production",
+      "host": "https://dbc-742f67dd-b7f1.cloud.databricks.com"
+    }
+  ]
+}

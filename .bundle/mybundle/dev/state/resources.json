@@ -1,0 +1,131 @@
+{
+ "state_version": 2,
+ "cli_version": "1.7.0",
+ "lineage": "b30f6b1c-147f-44f5-8904-fffcc3fa170f",
+ "serial": 1,
+ "state": {
+  "resources.jobs.sample_job": {
+   "__id__": "616360044677436",
+   "state": {
+    "deployment": {
+     "kind": "BUNDLE",
+     "metadata_file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/state/metadata.json"
+    },
+    "edit_mode": "EDITABLE",
+    "environments": [
+     {
+      "environment_key": "default",
+      "spec": {
+       "dependencies": [
+        "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/artifacts/.internal/mybundle-0.0.1-py3-none-any.whl"
+       ],
+       "environment_version": "4"
+      }
+     }
+    ],
+    "format": "MULTI_TASK",
+    "max_concurrent_runs": 4,
+    "name": "[dev dariusz_szklarek_1995] sample_job",
+    "parameters": [
+     {
+      "default": "learning_sql",
+      "name": "catalog"
+     },
+     {
+      "default": "dariusz_szklarek_1995",
+      "name": "schema"
+     }
+    ],
+    "queue": {
+     "enabled": true
+    },
+    "tags": {
+     "dev": "dariusz_szklarek_1995"
+    },
+    "tasks": [
+     {
+      "notebook_task": {
+       "notebook_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle/src/sample_notebook"
+      },
+      "task_key": "notebook_task"
+     },
+     {
+      "depends_on": [
+       {
+        "task_key": "notebook_task"
+       }
+      ],
+      "environment_key": "default",
+      "python_wheel_task": {
+       "entry_point": "main",
+       "package_name": "mybundle",
+       "parameters": [
+        "--catalog",
+        "learning_sql",
+        "--schema",
+        "dariusz_szklarek_1995"
+       ]
+      },
+      "task_key": "python_wheel_task"
+     },
+     {
+      "depends_on": [
+       {
+        "task_key": "notebook_task"
+       }
+      ],
+      "pipeline_task": {
+       "pipeline_id": "99f571a5-ac39-4761-ad45-6db1585861be"
+      },
+      "task_key": "refresh_pipeline"
+     }
+    ],
+    "trigger": {
+     "pause_status": "PAUSED",
+     "periodic": {
+      "interval": 1,
+      "unit": "DAYS"
+     }
+    }
+   },
+   "depends_on": [
+    {
+     "node": "resources.pipelines.mybundle_etl",
+     "label": "${resources.pipelines.mybundle_etl.id}"
+    }
+   ]
+  },
+  "resources.pipelines.mybundle_etl": {
+   "__id__": "99f571a5-ac39-4761-ad45-6db1585861be",
+   "state": {
+    "catalog": "learning_sql",
+    "channel": "CURRENT",
+    "deployment": {
+     "kind": "BUNDLE",
+     "metadata_file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/dev/state/metadata.json"
+    },
+    "development": true,
+    "edition": "ADVANCED",
+    "environment": {
+     "dependencies": [
+      "--editable /Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle"
+     ]
+    },
+    "libraries": [
+     {
+      "glob": {
+       "include": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle/src/mybundle_etl/transformations/**"
+      }
+     }
+    ],
+    "name": "[dev dariusz_szklarek_1995] mybundle_etl",
+    "root_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning/mybundle/src/mybundle_etl",
+    "schema": "dariusz_szklarek_1995",
+    "serverless": true,
+    "tags": {
+     "dev": "dariusz_szklarek_1995"
+    }
+   }
+  }
+ }
+}

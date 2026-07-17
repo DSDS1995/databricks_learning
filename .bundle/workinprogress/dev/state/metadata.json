@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "config": {
+    "bundle": {
+      "name": "workinprogress",
+      "target": "dev",
+      "mode": "development",
+      "git": {
+        "branch": "main",
+        "origin_url": "https://github.com/DSDS1995/databricks_learning.git",
+        "commit": "ff3459f48f2ba8c0856fee354895703ecb344cdc",
+        "bundle_root_path": "."
+      }
+    },
+    "workspace": {
+      "file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/workinprogress/dev/files"
+    },
+    "resources": {},
+    "presets": {
+      "source_linked_deployment": false
+    }
+  },
+  "extra": {}
+}

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "config": {
+    "bundle": {
+      "name": "mybundle",
+      "target": "prod",
+      "mode": "production",
+      "git": {
+        "bundle_root_path": "mybundle"
+      }
+    },
+    "workspace": {
+      "file_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/mybundle/prod/files"
+    },
+    "resources": {
+      "jobs": {
+        "sample_job": {
+          "id": "71293388613932",
+          "relative_path": "resources/sample_job.job.yml"
+        }
+      },
+      "pipelines": {
+        "mybundle_etl": {
+          "id": "df30bede-7597-47e4-8ac6-9311aee4525f",
+          "relative_path": "resources/mybundle_etl.pipeline.yml"
+        }
+      }
+    },
+    "presets": {
+      "source_linked_deployment": false
+    }
+  },
+  "extra": {
+    "git_folder_path": "/Workspace/Users/dariusz.szklarek.1995@outlook.com/databricks_learning"
+  }
+}

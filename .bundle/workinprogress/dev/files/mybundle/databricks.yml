@@ -30,7 +30,7 @@ targets:
     workspace:
       host: https://dbc-742f67dd-b7f1.cloud.databricks.com
     variables:
-      catalog: learning_sql
+      catalog: bundle
       schema: ${workspace.current_user.short_name}
   prod:
     mode: production
@@ -39,7 +39,7 @@ targets:
       # We explicitly deploy to /Workspace/Users/dariusz.szklarek.1995@outlook.com to make sure we only have a single copy.
       root_path: /Workspace/Users/dariusz.szklarek.1995@outlook.com/.bundle/${bundle.name}/${bundle.target}
     variables:
-      catalog: learning_sql
+      catalog: bundle
       schema: prod
     permissions:
       - user_name: dariusz.szklarek.1995@outlook.com

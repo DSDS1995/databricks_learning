@@ -1,0 +1,58 @@
+name: Sync Git Folder to Databricks
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    name: 'Update git folder in Databricks'
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_REPO_ID: ${{ secrets.DATABRICKS_REPO_ID }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Sync git folder to Databricks
+        run: |
+          set -e
+          
+          HOST="${DATABRICKS_HOST%/}"
+          if [[ ! "$HOST" =~ ^https?:// ]]; then
+              HOST="https://$HOST"
+          fi
+          
+          REPO_ID="$DATABRICKS_REPO_ID"
+          
+          if [ -z "$REPO_ID" ]; then
+              echo "✗ DATABRICKS_REPO_ID secret is not set"
+              exit 1
+          fi
+          
+          echo "=== Syncing Git Folder ==="
+          echo "Host: $HOST"
+          echo "Repo ID: $REPO_ID"
+          echo "Branch: main"
+          
+          # Update repository to sync with main branch
+          echo "Pulling latest from main branch..."
+          UPDATE_RESPONSE=$(curl -s -X PATCH "$HOST/api/2.0/repos/$REPO_ID" \
+            -H "Authorization: Bearer $DATABRICKS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"branch\": \"main\"
+            }")
+          
+          echo "Response: $UPDATE_RESPONSE"
+          
+          if echo "$UPDATE_RESPONSE" | grep -q "error_code"; then
+              echo "✗ Failed to update repository"
+              exit 1
+          fi
+          
+          echo "✓ Git folder synced successfully!"
